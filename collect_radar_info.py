@@ -1,14 +1,14 @@
 
-def return_radar_info(radar):
-    radar_stn_altitude = radar.altitude['data'][0]
+def return_radar_info(radar,data_config):
+    radar_stn_info = [radar.latitude['data'][0],radar.longitude['data'][0],radar.altitude['data'][0]]
     radar_azimuth = radar.azimuth['data']
     radar_elevation = radar.elevation['data']
     radar_sweep_start = radar.sweep_start_ray_index['data']
     radar_sweep_end = radar.sweep_end_ray_index['data']
     radar_nsweep = radar.nsweeps
-    radar_ref = radar.fields['reflectivity']['data']
+    radar_ref = radar.fields[data_config['field']]['data']
 
-    return radar_stn_altitude,radar_azimuth,radar_elevation,radar_sweep_start,radar_sweep_end,radar_nsweep,radar_ref
+    return radar_stn_info,radar_azimuth,radar_elevation,radar_sweep_start,radar_sweep_end,radar_nsweep,radar_ref
 
 def get_ppi(radar_nsweep,radar_elevation,radar_sweep_start,radar_sweep_end,radar_azimuth,radar_ref):
     ppi_data = {}
