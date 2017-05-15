@@ -1,5 +1,7 @@
 import numpy
 import wradlib as wrl
+import datetime
+
 def return_radar_info(radar,data_config):
     radar_location = (radar.longitude['data'][0],radar.latitude['data'][0],radar.altitude['data'][0])
     radar_azimuth = radar.azimuth['data']
@@ -10,8 +12,10 @@ def return_radar_info(radar,data_config):
     radar_ref = radar.fields[data_config['field']]['data']
     radar_ngates = radar.ngates
     radar_range = radar.range['data']
-
-    return radar_location,radar_azimuth,radar_elevation, \
+    radar_time_str = radar.time['units']
+    radar_time = datetime.datetime.strptime(radar_time_str[-20:-1],'%Y-%m-%dT%H:%M:%S')
+    
+    return radar_location,radar_time,radar_azimuth,radar_elevation, \
             radar_sweep_start,radar_sweep_end,radar_nsweep,radar_ngates,radar_range,\
             radar_ref
 
