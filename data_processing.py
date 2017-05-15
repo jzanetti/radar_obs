@@ -2,10 +2,10 @@ import numpy
 import wradlib
 from mpl_toolkits.basemap import Basemap, cm
 
-def plot_cappi_map(plt,cappi,longitude,latitude,radar_stn_info):
-    lon = longitude[0,:]
-    lat = latitude[:,0]
-    m = Basemap(projection='stere',lat_0=radar_stn_info[0], lon_0=radar_stn_info[1],
+def plot_griddata(plt,cappi,lon,lat,radar_stn_info):
+    #lon = longitude[0,:]
+    #lat = latitude[:,0]
+    m = Basemap(projection='stere',lat_0=radar_stn_info[1], lon_0=radar_stn_info[0],
                 llcrnrlat=min(lat),urcrnrlat=max(lat),
                 llcrnrlon=min(lon),urcrnrlon=max(lon))
     m.drawcoastlines()
