@@ -6,19 +6,15 @@ import argparse
 import pyart as py
 import os
 import matplotlib.pyplot as plt
+import datetime
+import glob
+import ntpath
 
-def myradar_program(args):
-    data = args.input_data_path
-    fig_dir = args.output_fig_dir
-    fig_size = args.figure_size
-    
-    if os.path.exists(fig_dir) == False:
-        os.makedirs(fig_dir)
-    
+def radar_config(method):
     data_config = {
-        'target': 'plot_cappi', # plot_cappi, plot_ppi
+        'target': method, # plot_cappi, plot_ppi
         'field': 'reflectivity',
-        'field_threshold': [15,45],
+        'field_threshold': [5,45],
         'cappi_config':
             {'grid_number': 1000, #the higher the more details, but run slower
              'cappi_height_range': (1500, 100000), # unit: meter 
@@ -26,7 +22,7 @@ def myradar_program(args):
              },
         'ppi_config':
             {   
-                'sweep_level':5,
+                'sweep_level':1,
                 'plotting_method': 'user',
                 'user':
                     {
@@ -36,9 +32,21 @@ def myradar_program(args):
         }
     
     qc_config = {
-        'run_clutter_removal': False,
+        'run_clutter_removal': True,
         'window_size': 5,
         }
+    
+    return data_config, qc_config
+
+def myradar_program(args, cfile):
+    data = cfile
+    fig_dir = args.output_fig_dir + '/' + args.radar_name
+    fig_size = args.figure_size
+    
+    if os.path.exists(fig_dir) == False:
+        os.makedirs(fig_dir)
+    
+    data_config, qc_config = radar_config(args.method)
     
     title_str_prefix = 'CAPPI, ' + str(data_config['cappi_config']['cappi_height_range'][0]) + 'm - ' + str(data_config['cappi_config']['cappi_height_range'][1]) + 'm'
     
@@ -109,7 +117,10 @@ def myradar_program(args):
                     radar_ngates, radar_range, \
                     radar_ref = collect_radar_info.return_radar_info(radar,data_config)
                             
-                            
+
+            if qc_config['run_clutter_removal']:
+                _,clutter_index = data_processing.clutter_removal(radar_ref,qc_config,data_config)
+                radar_ref[clutter_index] = 0.0
             gridded_data,lon_data,lat_data = collect_radar_info.get_ppi(radar_location,\
                                                                         data_config['ppi_config']['sweep_level'],
                                                                         data_config['ppi_config']['user']['grid_number'],
@@ -117,20 +128,57 @@ def myradar_program(args):
                                                                         radar_sweep_start, radar_sweep_end, 
                                                                         radar_azimuth,radar_ngates, radar_range,
                                                                         radar_ref)
-            title_str = 'PPI, ' + str(data_config['ppi_config']['sweep_level']) + ', ' + radar_time.strftime('%Y-%m-%dT%H:%M:%S')
+            title_str = 'PPI, {}, Level {}, {}'.format(args.radar_name, data_config['ppi_config']['sweep_level'], 
+                                                       radar_time.strftime('%Y-%m-%dT%H:%M:%S'))
+            #title_str = 'PPI, ' + str(data_config['ppi_config']['sweep_level']) + ', ' + radar_time.strftime('%Y-%m-%dT%H:%M:%S')
 
-            data_processing.plot_data(data_config,fig_size,fig_dir,title_str, gridded_data,lon_data,lat_data,radar_location,radar_time)
+            data_processing.plot_data(data_config,fig_size,fig_dir,title_str, gridded_data,lon_data,lat_data,radar_location,radar_time, args.radar_name)
+
+
+def valid_timerange(radar_dir, radar_startdatime, radar_enddatime, stn_name):
+    all_files = glob.glob('{}/{}*met_vola.raw'.format(radar_dir, stn_name))
+    selected_files = []
+    for cfile in all_files:
+        cfiletime = datetime.datetime.strptime(ntpath.basename(cfile)[3:15], '%y%m%d%H%M%S')
+        if cfiletime >= radar_startdatime and cfiletime <= radar_enddatime:
+            selected_files.append(cfile)
+    selected_files.sort()
+
+    return selected_files
+
+def args_opts_process(args):
+    radar_startdatime = datetime.datetime.strptime(args.start, '%Y%m%dT%H%M%S')
+    radar_enddatime = datetime.datetime.strptime(args.end, '%Y%m%dT%H%M%S')
+    radar_dir = args.radar_data_dir
+    selected_files = valid_timerange(radar_dir, radar_startdatime, radar_enddatime, args.radar_name)
     
-    print 'job done'
-        
+    return selected_files
+
 if __name__ == '__main__':
     PARSER = argparse.ArgumentParser(
         description='Radar_program_monitoring')
-    PARSER.add_argument('input_data_path', type=str, help="radar_path")
+    PARSER.add_argument('radar_data_dir', type=str, help="radar_data_dir", 
+                        default='/var/lib/nfs/amps-data-transfer/observations_test/radar')
+    PARSER.add_argument('radar_name', type=str, help="radar name, e.g., WLG")
+    PARSER.add_argument('start', type=str, help="start time of radar - YYYYMMDDTHHMMSS")
+    PARSER.add_argument('end', type=str, help="end time of radar - YYYYMMDDTHHMMSS")
     PARSER.add_argument('output_fig_dir', type=str, help="fig_dir")
     PARSER.add_argument('figure_size', type=str, help="fig_size")
-    #ARGS = PARSER.parse_args()
-    ARGS = PARSER.parse_args(['data/AKL170512004502_met_vola.raw','/home/szhang/workspace/radar_data_processing/figure','(15,15)'])
-    myradar_program(ARGS)
+    PARSER.add_argument('method', type=str, help="data plotting method: plot_cappi, plot_ppi")
+
+    ARGS = PARSER.parse_args(['/var/lib/nfs/amps-data-transfer/observations_test/radar',
+                              'WLG',
+                              '20170601T200000','20170601T210000',
+                              '/home/szhang/workspace/radar_data_processing/figure',
+                              '(15,15)',
+                              'plot_ppi'
+                              ])
+    selected_files = args_opts_process(ARGS)
+    len_files = len(selected_files)
+    for num, cfile in enumerate(selected_files, start=0):
+        print '{}/{}: {}'.format(num, len_files, cfile)
+        myradar_program(ARGS, cfile)
+    
+    print 'job done'
 
 
