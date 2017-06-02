@@ -1,0 +1,8 @@
+name: radar
+channels:
+- defaults
+- conda-forge
+dependencies:
+- wradlib
+- arm_pyart
+- basemap
